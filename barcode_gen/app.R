@@ -41,7 +41,7 @@ server <- function(input, output, session) {
     req(input$id)
 
     string <<- input$id
-    qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.35) + coord_fixed()
+    qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) + coord_fixed()
     label_text <- grid::textGrob(label_id(), gp = grid::gpar(col = "black", fontsize = 5))
     qr + label_text + plot_layout(nrow = 2)
   })

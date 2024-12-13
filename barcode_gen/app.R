@@ -1,14 +1,31 @@
 library(shiny)
-library(ggplot2)
+library(bslib)
 library(patchwork)
 
-ui <- fluidPage(
-  textInput("id", label = NULL, placeholder = "ID_Date_Specimen"),
-  plotOutput("plot"),
-  textOutput("id"),
-  textOutput("date"),
-  textOutput("specimen"),
-  actionButton("print", "Print Label"),
+ui <- page_sidebar(
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "minty"
+  ),
+  title = "Let's Print Some Barcodes!",
+  sidebar = sidebar(
+    width = 300,
+    h4("Enter an ID String"),
+    textInput("id", label = NULL, placeholder = "ID_Date_Specimen"),
+    actionButton("print", "Print Label", icon = icon("print"))
+  ),
+  card(
+    card_body(
+      max_height = 250,
+      plotOutput("plot")
+    ),
+    card_body(
+      class = "align-items-center",
+      htmlOutput("id"),
+      htmlOutput("date"),
+      htmlOutput("specimen")
+    )
+  ),
 )
 
 server <- function(input, output, session) {
@@ -23,13 +40,14 @@ server <- function(input, output, session) {
       lubridate::mdy() |>
       format("%b %d %Y")
 
-    id
+    return(id)
   })
 
   label_id <- reactive({
     req(input$id)
 
     text <- paste(id()[1], id()[2], id()[3], sep = "\n")
+    return(text)
   })
 
   barcode <- reactive({
@@ -40,8 +58,8 @@ server <- function(input, output, session) {
   barcode_plot <- reactive({
     req(input$id)
 
-    string <<- input$id
-   qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) + coord_fixed()
+    string <<- input$id # nolint: object_usage_linter.
+    qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) + ggplot2::coord_fixed()
     label_text <- grid::textGrob(label_id(), gp = grid::gpar(col = "black", fontsize = 5))
     qr + label_text + plot_layout(nrow = 2)
   })
@@ -50,27 +68,34 @@ server <- function(input, output, session) {
     req(input$id)
 
     label <- barcode_plot() | barcode_plot() | barcode_plot() | barcode_plot() | plot_layout(ncol = 4)
-    label & theme(plot.margin = margin(t = 0.1, r = 0.1, l = 0.1, unit = "in"))
+    label & ggplot2::theme(plot.margin = ggplot2::margin(t = 0.1, r = 0.1, l = 0.1, unit = "in"))
   })
 
 
   # Button click
+  temp <- tempfile(pattern = "label_", fileext = ".pdf")
 
   observe({
     # Notify
-    showModal(modalDialog(title = "Print","Barcode sent to printer"))
+    shinyalert::shinyalert(
+      html = TRUE,
+      type = "success",
+      title = "Barcode sent to printer!",
+      text = tagList(
+        downloadButton("downloadData", "Save PDF?")
+      )
+    )
 
     # Save pdf
-    ggsave(
+    ggplot2::ggsave(
       label_plot(),
-      file = "label.pdf",
+      file = temp,
       height = 1,
       width = 4,
       units = "in"
     )
-
     # Send pdf to printer
-    system("lp /srv/shiny-server/barcode_gen/label.pdf")
+    system(paste0("lp ", temp))
   }) |>
     bindEvent(input$print)
 
@@ -79,14 +104,21 @@ server <- function(input, output, session) {
     plot(barcode())
   })
   output$id <- renderText({
-    paste0("ID: ", id()[1])
+    paste0(span(strong("ID: ", .noWS = "after"), id()[1]))
   })
   output$date <- renderText({
-    paste0("Date: ", id()[2])
+    paste0(span(strong("Date: ", .noWS = "after"), id()[2]))
   })
   output$specimen <- renderText({
-    paste0("Specimen: ", id()[3])
+    paste0(span(strong("Specimen: ", .noWS = "after"), id()[3]))
   })
+  output$downloadData <- downloadHandler(
+    filename = "label.pdf",
+    content = function(file) {
+      file.copy(temp, file)
+    },
+    contentType = "application/pdf"
+  )
 }
 
 shinyApp(ui, server)

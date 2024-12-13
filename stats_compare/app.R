@@ -2,6 +2,7 @@ library(shiny)
 library(bslib)
 
 ui <- page_sidebar(
+  shinyjs::useShinyjs(), # Include shinyjs
   theme = bs_theme(
     version = 5,
     bootswatch = "minty"
@@ -23,8 +24,40 @@ ui <- page_sidebar(
     ),
     uiOutput("controls"),
     uiOutput("download"),
+    shinyjs::hidden(
+      actionButton("toggle", label = "Toggle Grid View")
+    )
   ),
-  uiOutput("results")
+  shinyjs::hidden(
+    card(
+      id = "results",
+      layout_column_wrap(
+        card(
+          h3("Input Data"),
+          reactable::reactableOutput("raw")
+        ),
+        card(
+          h3(textOutput("pretty_title")),
+          plotOutput("plot", ),
+          reactable::reactableOutput("table"),
+        )
+      ),
+      shinyjs::hidden(
+        card(
+          id = "grid",
+          full_screen = TRUE,
+          min_height = "50%",
+          plotOutput("plot_grid")
+        )
+      )
+    )
+  ),
+  # make sure input selectors are visible if overflowing bounds of card
+  # https://stackoverflow.com/questions/78134389/how-to-allow-selectizeinput-in-bslib-to-overlap-card
+  tags$head(
+    tags$style(".card{overflow: visible !important;}"),
+    tags$style(".card-body{overflow: visible !important;}")
+  )
 )
 
 server <- function(input, output, session) {
@@ -69,10 +102,14 @@ server <- function(input, output, session) {
     }
   })
 
-
   n_cond <- reactive({
     req(raw())
     nlevels(raw()$condition)
+  })
+
+  conds <- reactive({
+    req(raw())
+    levels(raw()$condition)
   })
 
   processed <- reactive({
@@ -94,9 +131,13 @@ server <- function(input, output, session) {
       out <- multi_anova( # nolint: object_usage_linter.
         data = raw(),
         adjust = input$adjust,
-        title = input$title
+        title = input$title,
+        pwc_test = input$pwc_test,
+        control = input$control
       )
     }
+    shinyjs::show("results")
+    shinyjs::show("toggle")
     return(out)
   })
 
@@ -108,17 +149,35 @@ server <- function(input, output, session) {
     )
   })
 
+  observeEvent(input$toggle, {
+    shinyjs::toggle("grid")
+  })
+
   # Outputs
-  output$table <- renderTable(striped = TRUE, align = "c", {
+  output$table <- reactable::renderReactable({
     req(processed())
-    table <- processed()[["table"]]
+    table <- reactable::reactable(
+      # data = processed()[["table"]] |> dplyr::select(-p.adj.signif),
+      data = processed()[["table"]],
+      defaultColDef = reactable::colDef(maxWidth = 95, align = "center"),
+      defaultPageSize = 15,
+      compact = TRUE,
+      highlight = TRUE,
+      striped = TRUE
+    )
     return(table)
   })
 
-  output$raw <- renderTable(striped = TRUE, {
+  output$raw <- reactable::renderReactable({
     req(raw())
-    raw() |>
-      dplyr::mutate(dplyr::across(!c(sample, condition), ~ format(.x, digits = 3))) # nolint: object_usage_linter.
+    reactable::reactable(
+      data = raw() |>
+        dplyr::mutate(dplyr::across(!c(sample, condition), ~ format(.x, digits = 3))), # nolint: object_usage_linter.
+      defaultPageSize = 15,
+      striped = TRUE,
+      highlight = TRUE,
+      compact = TRUE
+    )
   })
 
   output$plot <- renderPlot({
@@ -126,11 +185,17 @@ server <- function(input, output, session) {
     processed()[["boxplots"]][[input$select]]
   })
 
+  output$plot_grid <- renderPlot({
+    req(processed())
+    grid::grid.draw(processed()[["plot_grid"]])
+  })
+
   # render UI elements after input completes
   output$controls <- renderUI({
     req(raw())
     # test specific controls
     if (n_cond() == 2) {
+      # T-test
       card(
         h5("Controls"),
         uiOutput("title"),
@@ -141,12 +206,16 @@ server <- function(input, output, session) {
         uiOutput("adjust"),
         uiOutput("conf.level")
       )
-    } else {
+    } else if (n_cond() > 2) {
+      # ANOVA
       card(
         h5("Controls"),
         uiOutput("title"),
         uiOutput("select"),
         uiOutput("adjust"),
+        uiOutput("pwc_test"),
+        # hide control condition selector initially
+        shinyjs::hidden(div(id = "cont_cond", uiOutput("control"))),
       )
     }
   })
@@ -218,19 +287,29 @@ server <- function(input, output, session) {
     )
   })
 
-  output$results <- renderUI({
-    req(processed())
-    layout_columns(
-      card(
-        h3("Input Data"),
-        tableOutput("raw"),
-      ),
-      card(
-        h3(processed()$pretty_title),
-        plotOutput("plot"),
-        tableOutput("table")
+  output$pwc_test <- renderUI({
+    req(n_cond())
+    radioButtons(
+      inputId = "pwc_test",
+      label = strong("Pairwise Comparison Test"),
+      list(
+        "Tukey HSD" = "thsd",
+        "Dunnett" = "dunnett"
       ),
     )
+  })
+
+  output$control <- renderUI({
+    req(conds())
+    selectizeInput(
+      inputId = "control",
+      label = strong("Select a Control Condition"),
+      choices = conds()
+    )
+  })
+
+  output$pretty_title <- renderText({
+    processed()$pretty_title
   })
 
   output$download <- renderUI({
@@ -302,7 +381,7 @@ server <- function(input, output, session) {
         progress = FALSE
       )
       vroom::vroom_write(
-        ANOVA,
+        ANOVA, # nolint: object_usage_linter.
         file.path(temp_directory, "ANOVA.csv"),
         delim = ",",
         progress = FALSE

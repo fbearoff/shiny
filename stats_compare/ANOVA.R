@@ -1,4 +1,9 @@
-multi_anova <- function(data, adjust, title) {
+multi_anova <- function(data, adjust, title, pwc_test, control) {
+  if (shiny::isTruthy(pwc_test)) {
+  } else {
+    pwc_test <- "thsd"
+  }
+
   data_piv <- data |>
     tidyr::pivot_longer(
       !(sample:condition),
@@ -6,6 +11,9 @@ multi_anova <- function(data, adjust, title) {
       values_to = "value"
     ) |>
     dplyr::group_by(var)
+
+  # get conditions
+  conds <- levels(data_piv$condition)
 
   res <- data_piv |>
     # condense data per group into list-column for aov function
@@ -21,26 +29,56 @@ multi_anova <- function(data, adjust, title) {
     dplyr::ungroup() |>
     rstatix::adjust_pvalue(method = adjust) |>
     rstatix::add_significance()
-
   boxplots <- list()
   for (i in res$var) {
     boxplots[[i]] <- local({
+      # filter data for i
+      fdata <- data_piv |>
+        dplyr::filter(var == i)
+      # get max value to set bracket height
+      max <- fdata |>
+        dplyr::pull(value) |>
+        max()
       # subtitle label
       lab <- res |>
         dplyr::filter(var == i) |>
         glue::glue_data("*F*({DFn}, {DFd}) = {F}, &eta; <sup>2</sup><sub>g</sub> = {ges}, *p.adj*={p.adj}, *n*={n}")
 
-      p1 <- data_piv |>
-        dplyr::filter(var == i) |>
-        ggplot2::ggplot(ggplot2::aes(x = forcats::fct_inorder(condition), y = value)) +
+      if (pwc_test == "thsd") {
+        # hide controls for condition selection
+        shinyjs::hide("cont_cond")
+        pwc <- fdata |>
+          rstatix::tukey_hsd(formula = value ~ condition) |>
+          dplyr::rename(p = p.adj, p.signif = p.adj.signif) |>
+          rstatix::add_x_position()
+      } else if (pwc_test == "dunnett") {
+        # show controls for condition selection
+        shinyjs::show("cont_cond")
+        pwc <- fdata |>
+          DescTools::DunnettTest(
+            value ~ condition,
+            data = _,
+            control = control,
+          ) |>
+          _[[1]] |>
+          tibble::as_tibble(rownames = "comp") |>
+          tidyr::separate(col = comp, into = c("group1", "group2"), sep = "-") |>
+          dplyr::mutate(var = i, term = "condition", .before = 1) |>
+          dplyr::mutate(xmin = base::match(group1, conds), xmax = base::match(group2, conds)) |>
+          dplyr::rename(p = pval) |>
+          rstatix::add_significance(p.col = "p")
+      }
+
+      p1 <- fdata |>
+        ggplot2::ggplot(ggplot2::aes(x = condition, y = value)) +
         ggplot2::geom_boxplot(ggplot2::aes(fill = condition)) +
-        ggplot2::geom_point(size = 1.5)
-
-      p1 <- p1 +
-        ggpubr::geom_pwc(method = "tukey_hsd", hide.ns = TRUE) +
-        ggpubr::theme_pubr()
-
-      p1 +
+        ggplot2::geom_point(size = 1.5) +
+        ggpubr::stat_pvalue_manual(
+          data = pwc |> rstatix::remove_ns() |> dplyr::mutate(y.position = max),
+          label = "{rstatix::p_format(p, accuracy = 1e-4)} {p.signif}",
+          bracket.nudge.y = 0.05 * max,
+          step.increase = 0.12,
+        ) +
         ggplot2::labs(
           title = i,
           subtitle = lab,
@@ -76,11 +114,14 @@ multi_anova <- function(data, adjust, title) {
       hjust = 0.5
     )
 
-  # massage label to reflect actual p.adjust method
+  # massage label to reflect actual p.adjust method and pwc test
   pwc_label <- data_piv |>
     rstatix::tukey_hsd(value ~ condition) |>
     rstatix::get_pwc_label()
   pwc_label[[5]][[2]] <- adjust
+  if (pwc_test == "dunnett") {
+    pwc_label[[3]][[2]] <- "Dunnett"
+  }
 
   test_stat_caption <- cowplot::ggdraw() +
     cowplot::draw_label(
@@ -110,21 +151,25 @@ multi_anova <- function(data, adjust, title) {
     rot = 90
   )
 
+  # null device prevents graphing from console
   pdf(NULL)
   p1 <- gridExtra::grid.arrange(gridExtra::arrangeGrob(p1, left = y_title))
   invisible(dev.off())
 
   # make pretty table for display
-  table <- res |> dplyr::mutate(
-    DFn = format(DFn, digits = 1),
-    DFd = format(DFd, digits = 1),
-    p = rstatix::p_format(p, digits = 3),
-    p.adj = rstatix::p_format(p.adj, digits = 3),
-    SSn = format(SSn, digits = 3),
-    SSd = format(SSd, digits = 3),
-  )
+  table <- res |>
+    dplyr::relocate(p, .before = p.adj) |>
+    dplyr::mutate(
+      DFn = format(DFn, digits = 1),
+      DFd = format(DFd, digits = 1),
+      p = rstatix::p_format(p, digits = 3),
+      p.adj = rstatix::p_format(p.adj, digits = 3),
+      SSn = format(SSn, digits = 3),
+      SSd = format(SSd, digits = 3),
+    )
 
   out <- list(
+    "conds" = conds,
     "test" = "ANOVA",
     "pretty_title" = "ANOVA",
     "res" = res,

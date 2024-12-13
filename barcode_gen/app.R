@@ -8,7 +8,7 @@ ui <- fluidPage(
   textOutput("id"),
   textOutput("date"),
   textOutput("specimen"),
-  actionButton("print", "Print Label")
+  actionButton("print", "Print Label"),
 )
 
 server <- function(input, output, session) {
@@ -41,7 +41,7 @@ server <- function(input, output, session) {
     req(input$id)
 
     string <<- input$id
-    qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) + coord_fixed()
+   qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) + coord_fixed()
     label_text <- grid::textGrob(label_id(), gp = grid::gpar(col = "black", fontsize = 5))
     qr + label_text + plot_layout(nrow = 2)
   })
@@ -53,13 +53,12 @@ server <- function(input, output, session) {
     label & theme(plot.margin = margin(t = 0.1, r = 0.1, l = 0.1, unit = "in"))
   })
 
+
   # Button click
 
   observe({
     # Notify
-    showModal(
-      modalDialog(title = "Barcode sent to printer!", "Download as PDF?", downloadButton("downloadData", "Download"))
-    )
+    showModal(modalDialog(title = "Print","Barcode sent to printer"))
 
     # Save pdf
     ggsave(
@@ -71,7 +70,7 @@ server <- function(input, output, session) {
     )
 
     # Send pdf to printer
-    system("lp /srv/shiny-sever/barcode_gen/label.pdf")
+    system("lp /srv/shiny-server/barcode_gen/label.pdf")
   }) |>
     bindEvent(input$print)
 
@@ -88,10 +87,6 @@ server <- function(input, output, session) {
   output$specimen <- renderText({
     paste0("Specimen: ", id()[3])
   })
-  output$downloadData <- downloadHandler(
-    filename = "label.pdf",
-    content = "label.pdf"
-  )
 }
 
 shinyApp(ui, server)

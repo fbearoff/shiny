@@ -1,9 +1,9 @@
-# library(Microsoft365R)
 library(shiny)
 library(bslib)
 library(bsicons)
 
-# example id 9359-20_01/22/2025_PBMC
+# pull newest inventory on connect
+system(command = "sh dl_inventory.sh", intern = FALSE)
 
 ui <- page_fluid(
   theme = bs_theme(version = 5, bootswatch = "minty"),
@@ -27,7 +27,6 @@ ui <- page_fluid(
     ),
     showcase = bs_icon("qr-code-scan"),
     max_height = 200,
-    # theme = "green"
   ),
   layout_column_wrap(
     width = 0.5,
@@ -81,7 +80,6 @@ server <- function(input, output, session) {
   })
 
   observeEvent(select(), {
-    # print("Observed")
     shinyjs::runjs('document.getElementById("barcode").focus();')
     shinyjs::runjs('document.getElementById("barcode").select();')
   })

@@ -5,7 +5,7 @@ library(bsicons)
 # pull newest inventory on connect
 system(command = "sh dl_mouselog.sh", intern = FALSE)
 
-ui <- page_fluid(
+ui <- page_fillable(
   theme = bs_theme(version = 5, bootswatch = "minty"),
   shinyjs::useShinyjs(),
   # sets focus to chip input box on page load
@@ -36,9 +36,9 @@ ui <- page_fluid(
       showcase = bs_icon("card-text")
     ),
     value_box(
-      title = "Date of Birth",
-      value = textOutput("dob"),
-      showcase = bs_icon("calendar-day")
+      title = "Age",
+      value = textOutput("age"),
+      showcase = bs_icon("clock")
     ),
     value_box(
       title = "Sex",
@@ -51,11 +51,6 @@ ui <- page_fluid(
       showcase = bs_icon("yin-yang")
     ),
     value_box(
-      title = "Age",
-      value = textOutput("age"),
-      showcase = bs_icon("clock")
-    ),
-    value_box(
       title = "Sire",
       value = textOutput("sire"),
       showcase = bs_icon("gender-male")
@@ -64,6 +59,11 @@ ui <- page_fluid(
       title = "Dam",
       value = textOutput("dam"),
       showcase = bs_icon("gender-female")
+    ),
+    value_box(
+      title = "Date of Birth",
+      value = textOutput("dob"),
+      showcase = bs_icon("calendar-day")
     ),
     value_box(
       title = "Notes",
@@ -86,7 +86,6 @@ server <- function(input, output, session) {
       show_col_types = FALSE
     )
   })
-
 
   select <- reactive({
     db() |>
@@ -114,12 +113,18 @@ server <- function(input, output, session) {
       dplyr::pull(Sex)
   })
   output$age <- renderText({
-    select() |>
+    age <- select() |>
       dplyr::pull(Age)
+    age <- paste(age, "days")
+    return(age)
   })
   output$genotype <- renderText({
-    select() |>
-      dplyr::pull(Genotype)
+   select() |>
+      dplyr::pull(Genotype) |>
+      dplyr::case_match(
+        "M" ~ "Mutant",
+        "C" ~ "Control"
+      )
   })
   output$sire <- renderText({
     select() |>

@@ -5,7 +5,7 @@ library(bsicons)
 # pull newest inventory on connect
 system(command = "sh dl_inventory.sh", intern = FALSE)
 
-ui <- page_fluid(
+ui <- page_fillable(
   theme = bs_theme(version = 5, bootswatch = "minty"),
   shinyjs::useShinyjs(),
   # sets focus to barcode input box on page load

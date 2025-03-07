@@ -151,6 +151,9 @@ server <- function(input, output, session) {
         qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(val)), scale = 1.1) + ggplot2::coord_fixed()
         label_text <- grid::textGrob(val, gp = grid::gpar(col = "black", fontsize = 5)) # nolint: object_usage_linter.
         plots[[i]] <- qr + label_text + plot_layout(nrow = 2)
+      } else {
+        plots[[i]] <- ggplot2::ggplot() +
+          ggplot2::theme_void()
       }
     }
 

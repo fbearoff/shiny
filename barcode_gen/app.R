@@ -16,15 +16,39 @@ ui <- page_sidebar(
     shinyjs::hidden(
       card(
         id = "manual",
-        textAreaInput("label1", rows = 3, label = strong("Label 1"), placeholder = "Label 1"),
-        textAreaInput("label2", rows = 3, label = strong("Label 2"), placeholder = "Label 2"),
-        textAreaInput("label3", rows = 3, label = strong("Label 3"), placeholder = "Label 3"),
-        textAreaInput("label4", rows = 3, label = strong("Label 4"), placeholder = "Label 4")
+        textAreaInput(
+          "label1",
+          rows = 3,
+          label = strong("Label 1"),
+          placeholder = "Label 1"
+        ),
+        textAreaInput(
+          "label2",
+          rows = 3,
+          label = strong("Label 2"),
+          placeholder = "Label 2"
+        ),
+        textAreaInput(
+          "label3",
+          rows = 3,
+          label = strong("Label 3"),
+          placeholder = "Label 3"
+        ),
+        textAreaInput(
+          "label4",
+          rows = 3,
+          label = strong("Label 4"),
+          placeholder = "Label 4"
+        )
       )
     ),
     card(
       id = "id_card",
-      textInput("id", label = strong("ID String"), placeholder = "ID_Date_Specimen"),
+      textInput(
+        "id",
+        label = strong("ID String"),
+        placeholder = "ID_Date_Specimen"
+      ),
     ),
     actionButton("print", "Print Label", icon = icon("print"))
   ),
@@ -108,8 +132,12 @@ server <- function(input, output, session) {
   barcode_plot <- reactive({
     req(input$id)
     string <<- input$id # nolint: object_usage_linter.
-    qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) + ggplot2::coord_fixed()
-    label_text <- grid::textGrob(label_id(), gp = grid::gpar(col = "black", fontsize = 5))
+    qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(string)), scale = 1.1) +
+      ggplot2::coord_fixed()
+    label_text <- grid::textGrob(
+      label_id(),
+      gp = grid::gpar(col = "black", fontsize = 5)
+    )
     plot <- qr + label_text + plot_layout(nrow = 2)
     return(plot)
   })
@@ -135,7 +163,11 @@ server <- function(input, output, session) {
         # 14 character maximium/line
         if (stringr::str_length(l) <= 14) {
         } else {
-          shinyalert::shinyalert("Oops!", "Only 14 characters allowed per line.", type = "error")
+          shinyalert::shinyalert(
+            "Oops!",
+            "Only 14 characters allowed per line.",
+            type = "error"
+          )
           validate(message = FALSE)
         }
       }
@@ -146,10 +178,15 @@ server <- function(input, output, session) {
     for (i in names(inputs)) {
       i <<- i # nolint: object_usage_linter.
       val <<- inputs[[i]] # nolint: object_usage_linter.
-      if (shiny::isTruthy(val)) { # nolint: object_usage_linter.
+      if (shiny::isTruthy(val)) {
+        # nolint: object_usage_linter.
         qrs[[i]] <- qrcode::qr_code(val) # nolint: object_usage_linter.
-        qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(val)), scale = 1.1) + ggplot2::coord_fixed()
-        label_text <- grid::textGrob(val, gp = grid::gpar(col = "black", fontsize = 5)) # nolint: object_usage_linter.
+        qr <- ggplotify::as.ggplot(~ plot(qrcode::qr_code(val)), scale = 1.1) +
+          ggplot2::coord_fixed()
+        label_text <- grid::textGrob(
+          val, # nolint: object_usage_linter.
+          gp = grid::gpar(col = "black", fontsize = 5)
+        )
         plots[[i]] <- qr + label_text + plot_layout(nrow = 2)
       } else {
         plots[[i]] <- ggplot2::ggplot() +
@@ -168,11 +205,22 @@ server <- function(input, output, session) {
 
   label_plot <- reactive({
     if (input$switch == FALSE) {
-      label <- barcode_plot() | barcode_plot() | barcode_plot() | barcode_plot() | plot_layout(ncol = 4)
+      label <- barcode_plot() |
+        barcode_plot() |
+        barcode_plot() |
+        barcode_plot() |
+        plot_layout(ncol = 4)
     } else if (input$switch == TRUE) {
-      label <- manual()$plots$lab1 | manual()$plots$lab2 | manual()$plots$lab3 | manual()$plots$lab4 | plot_layout(ncol = 4)
+      label <- manual()$plots$lab1 |
+        manual()$plots$lab2 |
+        manual()$plots$lab3 |
+        manual()$plots$lab4 |
+        plot_layout(ncol = 4)
     }
-    label <- label & ggplot2::theme(plot.margin = ggplot2::margin(t = 0.1, r = 0.1, l = 0.1, unit = "in"))
+    label <- label &
+      ggplot2::theme(
+        plot.margin = ggplot2::margin(t = 0.1, r = 0.1, l = 0.1, unit = "in")
+      )
     return(label)
   })
 

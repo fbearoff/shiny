@@ -1,3 +1,4 @@
 barcode_scan/dl_inventory.sh
 mouse_scan/dl_mouselog.sh
 mouse_scan/master_summary.csv
+redcap/credentials.csv

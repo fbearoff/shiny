@@ -1,3 +1,5 @@
+# NOTE: Add demographics
+# NOTE: Clinical Trials added to redcap
 library(shiny)
 library(bslib)
 
@@ -8,7 +10,6 @@ ui <- page_fillable(
   title = "Enrollment in Active Studies",
   h1("Enrollment in Active Studies"),
   card(plotOutput(outputId = "summary_plot")),
-  # fill = FALSE,
   layout_column_wrap(
     heights_equal = "row",
     width = 0.5,

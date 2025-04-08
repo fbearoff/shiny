@@ -13,44 +13,89 @@ ui <- page_sidebar(
     width = 300,
     h4(textOutput("title")),
     input_switch("switch", "Manual mode?"),
-    shinyjs::hidden(
-      card(
-        id = "manual",
-        textAreaInput(
-          "label1",
-          rows = 3,
-          label = strong("Label 1"),
-          placeholder = "Label 1"
-        ),
-        textAreaInput(
-          "label2",
-          rows = 3,
-          label = strong("Label 2"),
-          placeholder = "Label 2"
-        ),
-        textAreaInput(
-          "label3",
-          rows = 3,
-          label = strong("Label 3"),
-          placeholder = "Label 3"
-        ),
-        textAreaInput(
-          "label4",
-          rows = 3,
-          label = strong("Label 4"),
-          placeholder = "Label 4"
-        )
-      )
-    ),
     card(
-      id = "id_card",
-      textInput(
-        "id",
-        label = strong("ID String"),
-        placeholder = "ID_Date_Specimen"
+      shinyjs::hidden(
+        card(
+          id = "manual",
+          textAreaInput(
+            "label1",
+            rows = 3,
+            label = strong("Label 1"),
+            placeholder = "Label 1"
+          ),
+          textAreaInput(
+            "label2",
+            rows = 3,
+            label = strong("Label 2"),
+            placeholder = "Label 2"
+          ),
+          textAreaInput(
+            "label3",
+            rows = 3,
+            label = strong("Label 3"),
+            placeholder = "Label 3"
+          ),
+          textAreaInput(
+            "label4",
+            rows = 3,
+            label = strong("Label 4"),
+            placeholder = "Label 4"
+          )
+        )
+      ),
+      card(
+        id = "id_card",
+        textInput(
+          "id",
+          label = strong("ID String"),
+          placeholder = "ID_Date_Specimen"
+        ),
+      ),
+      actionButton(
+        inputId = "print",
+        label = "Print Label",
+        icon = icon("print")
       ),
     ),
-    actionButton("print", "Print Label", icon = icon("print"))
+    card(
+      id = "all_labels_card",
+      h4("Print All Labels?"),
+      textInput(
+        inputId = "id_all",
+        label = "Enter Label ID",
+        placeholder = "Label ID"
+      ),
+      dateInput(
+        inputId = "date",
+        label = strong("Date"),
+        value = Sys.Date(),
+        format = "MM dd, yyyy"
+      ),
+      checkboxGroupInput(
+        inputId = "specimens",
+        label = "Specimens Collected?",
+        choices = c(
+          "Plasma" = "Plasma",
+          "Serum" = "Serum",
+          "PBMC" = "PBMC",
+          "RNA/DNA" = "RNA/DNA",
+          "Urine" = "Urine",
+          "CSF" = "CSF"
+        ),
+        selected = c(
+          "Plasma" = "Plasma",
+          "Serum" = "Serum",
+          "PBMC" = "PBMC",
+          "RNA/DNA" = "RNA/DNA"
+        ),
+      ),
+      actionButton(
+        inputId = "print_all",
+        label = "Print all Labels",
+        icon = icon("print"),
+        disabled = TRUE
+      )
+    ),
   ),
   card(
     id = "id_card_plot",
@@ -238,6 +283,9 @@ server <- function(input, output, session) {
   observe(
     shinyjs::toggle("id_card_plot", condition = !input$switch)
   )
+  observe(
+    shinyjs::toggle("all_labels_card", condition = !input$switch)
+  )
 
   # Button click
   temp <- tempfile(pattern = "label_", fileext = ".pdf")
@@ -265,6 +313,75 @@ server <- function(input, output, session) {
     system(paste0("lp ", temp))
   }) |>
     bindEvent(input$print)
+
+  ## print all
+  observe({
+    req(input$id_all)
+    # enabled printing only when ID is entered
+    updateActionButton(
+      session = session,
+      inputId = "print_all",
+      disabled = FALSE
+    )
+  })
+
+  observe({
+    req(input$id_all)
+    date <- input$date |> lubridate::ymd() |> format("%m/%d/%Y")
+    for (specimen in input$specimens) {
+      string <<- paste(input$id_all, date, specimen, sep = "_")
+      qr <- ggplotify::as.ggplot(
+        ~ plot(qrcode::qr_code(string)),
+        scale = 1.1
+      ) +
+        ggplot2::coord_fixed()
+      label_text <- grid::textGrob(
+        paste(
+          input$id_all,
+          input$date |> lubridate::ymd() |> format("%b %d %Y"),
+          specimen,
+          sep = "\n"
+        ),
+        gp = grid::gpar(col = "black", fontsize = 5)
+      )
+      plot <- qr + label_text + plot_layout(nrow = 2)
+
+      label_plot <- plot |
+        plot |
+        plot |
+        plot |
+        plot_layout(ncol = 4) &
+          ggplot2::theme(
+            plot.margin = ggplot2::margin(
+              t = 0.1,
+              r = 0.1,
+              l = 0.1,
+              unit = "in"
+            )
+          )
+
+      temp <- tempfile(pattern = "label_", fileext = ".pdf")
+
+      ggplot2::ggsave(
+        label_plot,
+        file = temp,
+        height = 1,
+        width = 4,
+        units = "in"
+      )
+
+      # Send pdf to printer
+      system(paste0("lp ", temp))
+    }
+
+    # Notify
+    shinyalert::shinyalert(
+      html = TRUE,
+      type = "success",
+      title = "Barcodes sent to printer!",
+    )
+  }) |>
+    bindEvent(input$print_all)
 
   # Outputs
   output$title <- renderText({

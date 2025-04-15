@@ -150,14 +150,6 @@ server <- function(input, output) {
         viridis::viridis(5, direction = -1, option = "viridis"),
         totals |> dplyr::select(!Study) |> names()
       )
-      # values = c(
-      #   # viridis colors
-      #   "Elligible" = "#FDE725FF",
-      #   "Approached" = "#5DC863FF",
-      #   "Consented" = "#21908CFF",
-      #   "Defering" = "#3B528BFF",
-      #   "Declined" = "#440154FF"
-      # )
     ) +
     ggplot2::theme_classic() +
     ggplot2::theme(
@@ -185,7 +177,8 @@ server <- function(input, output) {
       dplyr::filter(
         patorcon == "Patient", # nolint: object_usage_linter.
         !!dplyr::sym(paste0("inex_", study)) == 1,
-        !!dplyr::sym(paste0("ap", study)) != 1,
+        !!dplyr::sym(paste0("ap", study)) != 1 |
+          is.na(!!dplyr::sym(paste0("ap", study))),
       ) |>
       dplyr::mutate(study = study, .before = first_name) |> # nolint: object_usage_linter.
       dplyr::mutate(name = paste(first_name, last_name)) |> # nolint: object_usage_linter.

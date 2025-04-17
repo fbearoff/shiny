@@ -7,8 +7,9 @@ library(bslib)
 options(readr.num_columns = 0)
 
 ui <- page_fillable(
-  title = "Enrollment in Active Studies",
-  h1("Enrollment in Active Studies"),
+  title = "Study Enrollment",
+  h1(textOutput("title")),
+  input_switch("switch", "Active Studies Only?", value = TRUE),
   card(plotOutput(outputId = "summary_plot")),
   layout_column_wrap(
     heights_equal = "row",
@@ -80,21 +81,28 @@ server <- function(input, output) {
     stringr::str_remove("^inex_")
 
   # get studies and corresponding var abbreviations
-  vars <- meta$data |>
-    dplyr::filter(stringr::str_starts(
-      field_name, # nolint: object_usage_linter.
-      "inex_"
-    )) |>
-    dplyr::mutate(
-      field_name = stringr::str_remove(field_name, "inex_"),
-      field_label = stringr::str_remove(
-        field_label, # nolint: object_usage_linter.
-        "^Does the subject meet the inclusion/exclusion criteria for "
-      ),
-      field_label = stringr::str_remove(field_label, "\\?$")
-    ) |>
-    dplyr::select(field_name, field_label) |>
-    dplyr::filter(field_name %in% active)
+  vars <- reactive({
+    vars <- meta$data |>
+      dplyr::filter(stringr::str_starts(
+        field_name, # nolint: object_usage_linter.
+        "inex_"
+      )) |>
+      dplyr::mutate(
+        field_name = stringr::str_remove(field_name, "inex_"),
+        field_label = stringr::str_remove(
+          field_label, # nolint: object_usage_linter.
+          "^Does the subject meet the inclusion/exclusion criteria for "
+        ),
+        field_label = stringr::str_remove(field_label, "\\?$")
+      ) |>
+      dplyr::select(field_name, field_label)
+
+    if (input$switch == TRUE) {
+      vars <- vars |>
+        dplyr::filter(field_name %in% active) # nolint: object_usage_linter.
+    }
+    return(vars)
+  })
 
   # recode data to actual value definitions
   recode_col <- function(x) {
@@ -127,49 +135,54 @@ server <- function(input, output) {
   }
 
   # summary table/study
-  totals <- dplyr::bind_rows(lapply(vars$field_name, counts)) |>
-    tibble::add_column(Study = vars$field_label, .before = 1)
+  totals <- reactive({
+    dplyr::bind_rows(lapply(vars()$field_name, counts)) |>
+      tibble::add_column(Study = vars()$field_label, .before = 1)
+  })
 
   # plot totals/study
-  summary_plot <- totals |>
-    tidyr::pivot_longer(cols = !Study, values_to = "Count") |> # nolint: object_usage_linter.
-    dplyr::filter(Count > 0) |> # nolint: object_usage_linter.
-    ggplot2::ggplot(ggplot2::aes(
-      fill = forcats::fct_inorder(name), # nolint: object_usage_linter.
-      y = Count, # nolint: object_usage_linter.
-      x = Study
-    )) +
-    ggplot2::geom_bar(position = "dodge", stat = "identity") +
-    ggplot2::scale_x_discrete(drop = TRUE) +
-    ggplot2::scale_y_continuous(
-      label = scales::label_number(accuracy = 1),
-      expand = c(0, 0) # remove whitespace
-    ) +
-    ggplot2::scale_fill_manual(
-      values = setNames(
-        viridis::viridis(5, direction = -1, option = "viridis"),
-        totals |> dplyr::select(!Study) |> names()
+  summary_plot <- reactive({
+    totals() |>
+      tidyr::pivot_longer(cols = !Study, values_to = "Count") |> # nolint: object_usage_linter.
+      # NOTE: don't need the filter on Count if
+      # dplyr::filter(Count > 0) |> # nolint: object_usage_linter.
+      ggplot2::ggplot(ggplot2::aes(
+        fill = forcats::fct_inorder(name), # nolint: object_usage_linter.
+        y = Count, # nolint: object_usage_linter.
+        x = Study
+      )) +
+      ggplot2::geom_bar(position = "dodge", stat = "identity") +
+      ggplot2::scale_x_discrete(drop = TRUE) +
+      ggplot2::scale_y_continuous(
+        label = scales::label_number(accuracy = 1),
+        expand = c(0, 0) # remove whitespace
+      ) +
+      ggplot2::scale_fill_manual(
+        values = setNames(
+          viridis::viridis(5, direction = -1, option = "viridis"),
+          totals() |> dplyr::select(!Study) |> names()
+        )
+      ) +
+      ggplot2::theme_classic() +
+      ggplot2::theme(
+        legend.title = ggplot2::element_blank(),
+        legend.text = ggplot2::element_text(
+          size = 14
+        ),
+        axis.title.x = ggplot2::element_blank(),
+        axis.title.y = ggplot2::element_text(
+          size = 14
+        ),
+        axis.text.x = ggplot2::element_text(
+          size = 16,
+          angle = 45,
+          hjust = 1,
+        ),
+        axis.text.y = ggplot2::element_text(
+          size = 14
+        )
       )
-    ) +
-    ggplot2::theme_classic() +
-    ggplot2::theme(
-      legend.title = ggplot2::element_blank(),
-      legend.text = ggplot2::element_text(
-        size = 14
-      ),
-      axis.title.x = ggplot2::element_blank(),
-      axis.title.y = ggplot2::element_text(
-        size = 14
-      ),
-      axis.text.x = ggplot2::element_text(
-        size = 16,
-        angle = 45,
-        hjust = 1,
-      ),
-      axis.text.y = ggplot2::element_text(
-        size = 14
-      )
-    )
+  })
 
   # find ellgible patients that have not been approached
   needs_approach <- function(study) {
@@ -184,19 +197,21 @@ server <- function(input, output) {
       dplyr::mutate(name = paste(first_name, last_name)) |> # nolint: object_usage_linter.
       dplyr::select(study, name) # nolint: object_usage_linter.
   }
-  approach <- dplyr::bind_rows(lapply(vars$field_name, needs_approach)) |>
-    dplyr::left_join(vars, dplyr::join_by(study == field_name)) |> # nolint: object_usage_linter.
-    dplyr::mutate(study = field_label) |> # nolint: object_usage_linter.
-    dplyr::select(!field_label) |>
-    dplyr::rename_with(stringr::str_to_title) # nolint: object_usage_linter.
+  approach <- reactive({
+    dplyr::bind_rows(lapply(vars()$field_name, needs_approach)) |>
+      dplyr::left_join(vars(), dplyr::join_by(study == field_name)) |> # nolint: object_usage_linter.
+      dplyr::mutate(study = field_label) |> # nolint: object_usage_linter.
+      dplyr::select(!field_label) |>
+      dplyr::rename_with(stringr::str_to_title) # nolint: object_usage_linter.
+  })
 
-  # outputs
+  ## outputs
   output$summary_plot <- renderPlot({
-    summary_plot
+    summary_plot()
   })
 
   output$summary_table <- function() {
-    totals |>
+    totals() |>
       knitr::kable("html") |>
       kableExtra::kable_styling(
         full_width = TRUE,
@@ -204,8 +219,8 @@ server <- function(input, output) {
       )
   }
 
-  output$needs_approach <- function() {
-    approach |>
+  output$needs_approach <- reactive({
+    approach() |>
       knitr::kable("html") |>
       kableExtra::collapse_rows(
         columns = 1,
@@ -216,7 +231,14 @@ server <- function(input, output) {
         full_width = FALSE,
         position = "left"
       )
-  }
-}
+  })
 
+  output$title <- renderText({
+    ifelse(
+      input$switch,
+      yes = "Enrollment in Active Studies",
+      no = "Enrollment in All Studies"
+    )
+  })
+}
 shinyApp(ui, server)

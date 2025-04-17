@@ -28,8 +28,7 @@ ui <- page_fillable(
 server <- function(input, output) {
   # load credentials
   creds <- REDCapR::retrieve_credential_local(
-    "credentials.csv",
-    project_id = "4308"
+    "credentials.csv"
   )
 
   # retrieve data and metadata dictionary from redcap

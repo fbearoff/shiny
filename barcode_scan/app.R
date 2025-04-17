@@ -6,16 +6,19 @@ library(bsicons)
 system(command = "sh dl_inventory.sh", intern = FALSE)
 
 ui <- page_fillable(
+  title = "Sample Barcode Lookup",
   theme = bs_theme(version = 5, bootswatch = "minty"),
   shinyjs::useShinyjs(),
   # sets focus to barcode input box on page load
   tags$head(
     tags$script(
-      HTML("
+      HTML(
+        "
         $(document).ready(function() {
         $('#barcode').focus();
         })
-        ")
+        "
+      )
     )
   ),
   value_box(
@@ -72,7 +75,6 @@ server <- function(input, output, session) {
   db <- reactive({
     vroom::vroom("pbmc.csv")
   })
-
 
   select <- reactive({
     db() |>

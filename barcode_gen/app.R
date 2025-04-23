@@ -77,16 +77,16 @@ ui <- page_sidebar(
         choices = c(
           "Plasma" = "Plasma",
           "Serum" = "Serum",
-          "PBMC" = "PBMC",
           "RNA/DNA" = "RNA/DNA",
+          "PBMC" = "PBMC",
           "Urine" = "Urine",
           "CSF" = "CSF"
         ),
         selected = c(
           "Plasma" = "Plasma",
           "Serum" = "Serum",
-          "PBMC" = "PBMC",
-          "RNA/DNA" = "RNA/DNA"
+          "RNA/DNA" = "RNA/DNA",
+          "PBMC" = "PBMC"
         ),
       ),
       actionButton(

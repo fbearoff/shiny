@@ -94,6 +94,11 @@ ui <- page_sidebar(
         label = "Print all Labels",
         icon = icon("print"),
         disabled = TRUE
+      ),
+      actionButton(
+        inputId = "print_fda",
+        label = "Print FDA Form",
+        icon = icon("print"),
       )
     ),
   ),
@@ -324,6 +329,11 @@ server <- function(input, output, session) {
       disabled = FALSE
     )
   })
+
+  observe({
+    system("lp /srv/forms/biospecimens_paper_CRF_V6.pdf -d Lab_Laser")
+  }) |>
+    bindEvent(input$print_fda)
 
   observe({
     req(input$id_all)

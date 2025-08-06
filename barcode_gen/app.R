@@ -204,15 +204,13 @@ server <- function(input, output, session) {
     for (i in inputs) {
       split <- i |> stringr::str_split_1("\n")
       # 4 line maximum
-      if (length(split) <= 4) {
-      } else {
+      if (length(split) <= 4) {} else {
         shinyalert::shinyalert("Oops!", "Only 4 lines allowed.", type = "error")
         validate(message = FALSE)
       }
       for (l in split) {
         # 14 character maximium/line
-        if (stringr::str_length(l) <= 14) {
-        } else {
+        if (stringr::str_length(l) <= 14) {} else {
           shinyalert::shinyalert(
             "Oops!",
             "Only 14 characters allowed per line.",
@@ -339,7 +337,7 @@ server <- function(input, output, session) {
     req(input$id_all)
     date <- input$date |> lubridate::ymd() |> format("%m/%d/%Y")
     for (specimen in input$specimens) {
-      string <<- paste(input$id_all, date, specimen, sep = "_")
+      string <<- paste(toupper(input$id_all), date, specimen, sep = "_")
       qr <- ggplotify::as.ggplot(
         ~ plot(qrcode::qr_code(string)),
         scale = 1.1

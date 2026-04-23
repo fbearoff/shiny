@@ -1,3 +1,5 @@
+options(sass.cache = FALSE)
+
 library(shiny)
 library(bslib)
 library(patchwork)

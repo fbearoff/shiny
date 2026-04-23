@@ -1,9 +1,11 @@
+options(sass.cache = FALSE)
+
 library(shiny)
 library(bslib)
 library(bsicons)
 
 # pull newest inventory on connect
-system(command = "sh dl_mouselog.sh", intern = FALSE)
+master_summary <- paste0(readLines("master_summary_link.txt"), collapse = " ")
 
 ui <- page_fillable(
   theme = bs_theme(version = 5, bootswatch = "minty"),
@@ -11,11 +13,13 @@ ui <- page_fillable(
   # sets focus to chip input box on page load
   tags$head(
     tags$script(
-      HTML("
+      HTML(
+        "
         $(document).ready(function() {
         $('#scan').focus();
         })
-        ")
+        "
+      )
     )
   ),
   value_box(
@@ -81,7 +85,7 @@ ui <- page_fillable(
 server <- function(input, output, session) {
   db <- reactive({
     vroom::vroom(
-      "master_summary.csv",
+      master_summary,
       progress = FALSE,
       show_col_types = FALSE
     )
@@ -119,7 +123,7 @@ server <- function(input, output, session) {
     return(age)
   })
   output$genotype <- renderText({
-   select() |>
+    select() |>
       dplyr::pull(Genotype) |>
       dplyr::case_match(
         "M" ~ "Mutant",

@@ -3,3 +3,10 @@ mouse_scan/dl_mouselog.sh
 mouse_scan/master_summary.csv
 redcap/credentials.csv
 barcode_scan/pbmc.csv
+ELISA_4PL/app_cache/sass
+barcode_scan/app_cache/sass
+mouse_scan/master_summary_link.txt
+redcap/app_cache/sass
+stats_compare/app_cache/sass
+barcode_gen/Rplots.pdf
+forms

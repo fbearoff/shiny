@@ -331,7 +331,9 @@ server <- function(input, output, session) {
   })
 
   observe({
-    system("lp /srv/forms/biospecimens_paper_CRF_V6.pdf -d Lab_Laser")
+    system(
+      "lp /srv/shiny-apps/forms/biospecimens_paper_CRF_V6.pdf -d Lab_Laser"
+    )
   }) |>
     bindEvent(input$print_fda)
 

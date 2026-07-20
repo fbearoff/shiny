@@ -4,7 +4,9 @@ ui <- fluidPage(
   titlePanel("Process ELLA Export File"),
   sidebarLayout(
     sidebarPanel(
-      fileInput("file1", "Choose ELLA CSV Export File",
+      fileInput(
+        "file1",
+        "Choose ELLA CSV Export File",
         multiple = FALSE,
         accept = c(
           "text/csv",
@@ -29,8 +31,17 @@ server <- function(input, output) {
   processed <- reactive({
     req(input$file1)
     raw() |>
-      dplyr::select(c("Sample Name", "Sample Type", "Analyte Name", "Mean Conc.")) |>
-      tidyr::pivot_wider(names_from = "Analyte Name", values_from = c("Mean Conc."))
+      dplyr::select(c(
+        "Sample Name",
+        "Sample Type",
+        "Analyte Name",
+        "Mean Conc."
+      )) |>
+      dplyr::filter_out(is.na(`Sample Name`)) |> # nolint
+      tidyr::pivot_wider(
+        names_from = "Analyte Name",
+        values_from = c("Mean Conc.")
+      )
   })
 
   output$table <- renderTable({
